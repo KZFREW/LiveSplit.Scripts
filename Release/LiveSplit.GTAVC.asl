@@ -1,6 +1,15 @@
-// OMF stuff to check:
-// does buying a property set OMF to 1?
-// OMF checking for rampage and vigilante doesn't work
+// Original autosplitter by zoton2 and pitpo, contributions by MHMD_FVC.
+
+// KZ_FREW changes:
+// Added side missions and collectibles
+// Prevented splitting after loading a save mid-run
+// Cleaned up the settings list in LiveSplit
+// 
+// To do:
+// Clean up the split logic a bit
+// Test with the experimental "split on mission start" setting
+
+// I borrowed a lot of code from tduva -- really helped me out, so credit where it's due. Thanks tduva.
 
 state("gta-vc")
 {
@@ -43,86 +52,295 @@ state("gta-vc", "Japanese")
 
 startup
 {
-	// List of mission memory addresses (for 1.0, see below for where offsets get added).
-	vars.missionAddresses = new Dictionary<int, string> {
-		{0x421600, "The Party"},
-		{0x421604, "Back Alley Brawl"},
-		{0x421608, "Jury Fury"},
-		{0x42160C, "Riot"},
-		{0x421614, "Treacherous Swine"},
-		{0x421728, "Road Kill"},
-		{0x421618, "Mall Shootout"},
-		{0x42161C, "Guardian Angels"},
-		{0x42162C, "The Chase"},
-		{0x42172C, "Waste The Wife"},
-		{0x421630, "Phnom Penh '86"},
-		{0x421634, "The Fastest Boat"},
-		{0x421638, "Supply and Demand"},
-		{0x421620, "Sir Yes Sir"},
-		{0x421650, "Four Iron"},
-		{0x421648, "Death Row"},
-		{0x42163C, "Rub Out"},
-		{0x4216A8, "Shakedown"},
-		{0x421684, "Recruitment Drive"},
-		{0x421688, "Dildo Dodo"},
-		{0x4216C0, "Spilling the Beans"},
-		{0x4216C4, "Hit the Courier"},
-		{0x4216AC, "Bar Brawl"},
-		{0x421730, "Autocide"},
-		{0x421624, "All Hands On Deck"},
-		{0x42168C, "Martha's Mug Shot"},
-		{0x421690, "G-Spotlight"},
-		{0x421654, "Demolition Man"},
-		{0x421658, "Two Bit Hit"},
-		{0x421750, "V.I.P."},
-		{0x421734, "Check Out At The Check In"},
-		{0x421700, "Love Juice"},
-		{0x421704, "Psycho Killer"},
-		{0x4216CC, "Alloy Wheels Of Steel"},
-		{0x4216D0, "Messing With The Man"},
-		{0x4216D4, "Hog Tied"},
-		{0x4216B0, "Cop Land"},
-		{0x421754, "Friendly Rivalry"},
-		{0x421758, "Cabmaggedon"},
-		{0x421660, "No Escape?"},
-		{0x4216DC, "Stunt Boat Challenge"},
-		{0x421664, "The Shootist"},
-		{0x421708, "Publicity Tour"},
-		{0x421668, "The Driver"},
-		{0x42166C, "The Job"},
-		{0x4216F0, "Juju Scramble"},
-		{0x4216F4, "Bombs Away!"},
-		{0x421738, "Loose Ends"},
-		{0x4216B4, "Cap the Collector"},
-		{0x4216F8, "Dirty Lickin's"},
-		{0x421678, "Gun Runner"},
-		{0x42167C, "Boomshine Saigon"},
-		{0x4216E0, "Cannon Fodder"},
-		{0x4216E4, "Naval Engagement"},
-		{0x4216E8, "Trojan Voodoo"},
-		{0x4216B8, "Keep Your Friends Close"},
-		{0x421BFC, "Checkpoint Charlie"}
+	// List of mission memory addresses (for 1.0, see below for where offsets get added)
+	
+	// Collectible addresses
+	vars.collectibles = new Dictionary<string, int> {
+		{"Packages", 0x4226E8},
+		{"Stunt Jumps", 0x421EDC},
+		{"Rampages", 0x42286C},
+		{"Robberies", 0x422A6C}
 	};
 	
-	settings.Add("OMFSplit", false, "Split on Start of Next Mission (experimental)");
-	settings.Add("Missions", false, "Missions");
+	// Assets/missions with only one objective (sans Kent Paul)
+	vars.mission2 = new Dictionary<string, int> {
+		{"Checkpoint Charlie (Boatyard)", 0x421BFC},
+		{"Distribution (Cherry Poppers)", 0x421C10},
+		{"Pole Position ($300 Spent)", 0x4223A0},
+		{"Rifle Range (45 Points)", 0x421430}
+	};
 	
-	// Adds missions to the settings and also to a separate list for easier checking later.
+	// Main story/asset mission addresses
+	vars.missionAddresses = new Dictionary<string, Dictionary<int, string>> {
+		{"Ken Rosenberg", new Dictionary<int, string> {
+	  		{0x4215F8, "An Old Friend"},
+			{0x421600, "The Party"},
+			{0x421604, "Back Alley Brawl"},
+			{0x421608, "Jury Fury"},
+			{0x42160C, "Riot"}
+		}},
+		{"Avery", new Dictionary<int, string> {
+			{0x421650, "Four Iron"},
+			{0x421654, "Demolition Man"},
+			{0x421658, "Two Bit Hit"}
+		}},			
+	    {"Cortez", new Dictionary<int, string> {
+			{0x421614, "Treacherous Swine"},
+			{0x421618, "Mall Shootout"},
+			{0x42161C, "Guardian Angels"},
+			{0x421620, "Sir, Yes, Sir!"},
+			{0x421624, "All Hands On Deck!"}
+		}},
+		{"Diaz", new Dictionary<int, string> {
+			{0x42162C, "The Chase"},
+			{0x421630, "Phnom Penh '86"},
+			{0x421634, "The Fastest Boat"},
+			{0x421638, "Supply and Demand"}
+		}},
+		{"Kent Paul", new Dictionary<int, string> {
+			{0x421648, "Death Row"}
+		}},
+		{"Vercetti", new Dictionary<int, string> {
+			{0x42163C, "Rub Out"},
+			{0x4216B8, "Keep Your Friends Close..."}
+		}},
+		{"Umberto Robina", new Dictionary<int, string> {
+			{0x4216DC, "Stunt Boat Challenge"},		
+			{0x4216E0, "Cannon Fodder"},
+			{0x4216E4, "Naval Engagement"},
+			{0x4216E8, "Trojan Voodoo"}		
+		}},
+		{"Auntie Poulet", new Dictionary<int, string> {
+			{0x4216F0, "Juju Scramble"},
+			{0x4216F4, "Bombs Away!"},
+			{0x4216F8, "Dirty Lickin's"}
+		}},
+		{"Mitch Baker", new Dictionary<int, string> {
+			{0x4216CC, "Alloy Wheels Of Steel"},
+			{0x4216D0, "Messing With The Man"},
+			{0x4216D4, "Hog Tied"}
+		}},
+		{"Love Fist", new Dictionary<int, string> {
+			{0x421700, "Love Juice"},
+			{0x421704, "Psycho Killer"},
+			{0x421708, "Publicity Tour"}
+		}},
+		{"Phil Cassidy", new Dictionary<int, string> {
+			{0x421678, "Gun Runner"},
+			{0x42167C, "Boomshine Saigon"}
+		}},
+		{"Mr. Black", new Dictionary<int, string> {
+			{0x421728, "Road Kill"},
+			{0x42172C, "Waste The Wife"},
+			{0x421730, "Autocide"},
+			{0x421734, "Check Out At The Check In"},
+			{0x421738, "Loose Ends"}
+		}},
+		{"Vercetti Mansion", new Dictionary<int, string> {
+			{0x4216A8, "Shakedown"},
+			{0x4216AC, "Bar Brawl"},
+			{0x4216B0, "Cop Land"}
+		}},
+		{"Printworks", new Dictionary<int, string> {
+			{0x4216C0, "Spilling the Beans"},
+			{0x4216C4, "Hit the Courier"},
+			{0x4216B4, "Cap the Collector"}
+		}},			
+		{"Sunshine Autos Imports", new Dictionary<int, string> {
+			{0x422414, "List 1"},
+			{0x422418, "List 2"},
+			{0x42241C, "List 3"},
+			{0x422420, "List 4"}
+		}},
+		{"Sunshine Autos Races", new Dictionary<int, string> {
+			{0x422B50, "Terminal Velocity"},
+			{0x422B54, "Ocean Drive"},
+			{0x422B58, "Border Run"},
+			{0x422B5C, "Capital Cruise"},
+			{0x422B60, "Tour!"},
+			{0x422B64, "VC Endurance"},
+		}},
+		{"Film Studio", new Dictionary<int, string> {
+			{0x421684, "Recruitment Drive"},
+			{0x421688, "Dildo Dodo"},
+			{0x42168C, "Martha's Mug Shot"},
+			{0x421690, "G-Spotlight"}
+		}},
+		{"Kaufman Cabs", new Dictionary<int, string> {
+			{0x421750, "V.I.P."},
+			{0x421754, "Friendly Rivalry"},
+			{0x421758, "Cabmaggedon"}
+		}},
+		{"Malibu", new Dictionary<int, string> {
+			{0x421660, "No Escape?"},
+			{0x421664, "The Shootist"},
+			{0x421668, "The Driver"},
+			{0x42166C, "The Job"}
+		}},
+		{"Stadium Events", new Dictionary<int, string> {
+			{0x422B74, "Hotring"},
+			{0x422B78, "Bloodring"},
+			{0x42135C, "Dirtring"}
+		}},
+		{"Chopper Checkpoints", new Dictionary<int, string> { // some of these don't work
+			{0x422B44, "Ocean Beach"},
+			{0x422B48, "Vice Point"},
+			{0x422B4C, "Little Haiti"},
+			{0x422B40, "Downtown"}
+		}},
+		{"Off-Road Challenges", new Dictionary<int, string> {
+			{0x4217CC, "PCJ Playground"},
+			{0x4217FC, "Cone Crazy"},
+			{0x42182C, "Trial By Dirt"},
+			{0x421830, "Test Track"}
+		}},
+		{"RC Top-Fun", new Dictionary<int, string> {
+			{0x4291F0, "RC Raider"},
+			{0x429344, "RC Bandit"},
+			{0x429714, "RC Baron"}
+		}},
+		{"Vehicle Missions", new Dictionary<int, string> {
+			{0x422B34, "Paramedic (Level 12)"},
+			{0x422B3C, "Firefighter (Level 12)"},
+			{0x421894, "Pizza Boy (Level 10)"},
+			{0x422B38, "Vigilante (Level 12)"},
+			{0x421854, "Taxi (100 Fares)"}
+		}},
+		{"Safehouses", new Dictionary<int, string> {
+			{0x4226D4, "1102 Washington Street"},
+			{0x4226D8, "3321 Vice Point"},
+			{0x4226DC, "El Swanko Casa"},
+			{0x4226D0, "Hyman Condo"},
+			{0x4226E0, "Links View"},
+			{0x4226E4, "Ocean Heights"},
+			{0x4226CC, "Skumole Shack"}
+		}},
+	};
+	
+	// Creating separate lists for easier checking later.
 	vars.missionList = new List<string>();
-	foreach (var address in vars.missionAddresses) {
-		settings.Add(address.Value, false, address.Value, "Missions");
-		vars.missionList.Add(address.Value);
+	vars.collectibleList = new List<string>();
+	vars.stadList = new List<string>(); // stadium missions list
+	
+	// Inserts split into settings and adds the mission to our separate list.
+	Action<string, bool> addMissionChain = (missions, defaultValue) => {
+		var parent = missions;
+		foreach (var address in vars.missionAddresses[missions]) {
+			settings.Add(address.Value, defaultValue, address.Value, parent);
+			// Adding a separate check for stadium to be able to split for all three.
+			if (address.Value == "Hotring" || address.Value == "Bloodring" || address.Value == "Dirtring") {
+				vars.stadList.Add(address.Value);
+			}
+			vars.missionList.Add(address.Value);
+		}
+	};
+	
+	// Inserts header (i.e. mission giver) into settings.
+	Action<string, bool, string> addMissionHeader = (missions, defaultValue, header) => {
+		var parent = missions;
+		settings.Add(parent, defaultValue, header);
+		addMissionChain(missions, defaultValue);
+	};
+		
+	// Settings Page
+	// -------------
+	
+	// Parent settings.
+	settings.Add("OMFSplit", false, "Split on Start of Next Mission (experimental)");
+	settings.Add("Missions", true, "Missions");
+	settings.Add("Assets", true, "Assets");
+	settings.Add("Sunshine Autos", false, "Sunshine Autos", "Assets");
+	settings.Add("Odd Jobs", false, "Odd Jobs");
+	settings.Add("Collectibles", false, "Collectibles");
+	
+	// Adding mission headers
+	settings.CurrentDefaultParent = "Missions";
+	addMissionHeader("Ken Rosenberg", true, "Lawyer");
+	addMissionHeader("Avery", false, "Avery");
+	addMissionHeader("Cortez", true, "Cortez");
+	addMissionHeader("Diaz", true, "Diaz");
+	
+	addMissionHeader("Kent Paul", true, "Kent Paul");
+	addMissionHeader("Vercetti", true, "Vercetti");
+	addMissionHeader("Umberto Robina", false, "Umberto Robina");
+	addMissionHeader("Auntie Poulet", false, "Auntie Poulet");
+	
+	addMissionHeader("Mitch Baker", false, "Mitch Baker");
+	addMissionHeader("Love Fist", false, "Love Fist");
+	addMissionHeader("Phil Cassidy", false, "Phil Cassidy");
+	addMissionHeader("Mr. Black", false, "Mr. Black");
+	
+	// Asset headers (includes mansion and printworks).
+	settings.CurrentDefaultParent = "Assets";
+	addMissionHeader("Vercetti Mansion", true, "Vercetti Mansion");
+	addMissionHeader("Printworks", true, "Printworks");
+	addMissionHeader("Film Studio", false, "Film Studio");
+	addMissionHeader("Kaufman Cabs", false, "Kaufman Cabs");
+	addMissionHeader("Malibu", false, "Malibu");
+	
+	// Adding settings for "mission2" list and storing in missionList.
+	foreach (var mission in vars.mission2)
+	{
+		settings.CurrentDefaultParent = "Assets";
+		// Seperate check for Rifle Range to categorize it appropriately
+		if (mission.Key == "Rifle Range (45 Points)") {
+			settings.CurrentDefaultParent = "Odd Jobs";
+		}
+		settings.Add(mission.Key, false, mission.Key);
+		vars.missionList.Add(mission.Key);
 	}
+	
+	// Both SSA objectives
+	settings.CurrentDefaultParent = "Sunshine Autos";
+	addMissionHeader("Sunshine Autos Imports", false, "Imports");
+	addMissionHeader("Sunshine Autos Races", false, "Races");
+	
+	// And everything else
+	settings.CurrentDefaultParent = "Odd Jobs";
+	addMissionHeader("Stadium Events", false, "Stadium Events");
+	settings.Add("stadAll", false, "Stadium Events (All Done)", "Stadium Events"); // setting used later to split for all 3 stadium missions
+	addMissionHeader("Chopper Checkpoints", false, "Chopper Checkpoints");
+	addMissionHeader("Off-Road Challenges", false, "Off-Road Challenges");
+	addMissionHeader("RC Top-Fun", false, "RC Top-Fun");
+	addMissionHeader("Vehicle Missions", false, "Vehicle Missions");
+	
+	// Collectibles (Packages, Rampages, USJs, Robberies, and Properties/Safehouses).
+	settings.CurrentDefaultParent = "Collectibles";
+	addMissionHeader("Safehouses", false, "Safehouses");
+	foreach (var item in vars.collectibles)
+	{
+		// Add seperate settings depending on player preference. Split for each collectible gathered, or when all are gathered.
+		settings.Add(item.Key+"All", false, item.Key+" (All Done)");
+		settings.Add(item.Key+"Each", false, item.Key+" (Each)");
+		vars.collectibleList.Add(item.Key);
+	}
+	settings.CurrentDefaultParent = null;	
 	
 	// Setting for final split of Any%.
 	settings.Add("btgFinalSplit", false, "Any% Final Split");
 	settings.SetToolTip("btgFinalSplit", "Splits once you lose control on \"Keep Your Friends Close\".");
+	
+	// State checking
+	// --------------
+	
+	// Used later to track last loadtime.
+	vars.lastLoad = 0;
+	
+	// Used to prevent splitting if the game was loaded recently
+	vars.waiting = false;
+	
+	// Setting a check later for timer phase.
+	vars.PrevPhase = null;
+	
+	// Used later to count stadium missions.
+	vars.stadAllCount = 0;
+	
 }
 
 init
 {
 	vars.offset = 0;
-	vars.split = new List<string>();
+	vars.split = new List<string>(); // to keep a list of split splits.
 	
 	// Detects current game version if Steam.
 	if (modules.First().ModuleMemorySize == 6905856)
@@ -160,8 +378,33 @@ init
 	
 	// Adds mission memory addresses (with the correct offset) to the watcher list.
 	vars.memoryWatchers = new MemoryWatcherList();
-	foreach (var address in vars.missionAddresses)
-		vars.memoryWatchers.Add(new MemoryWatcher<int>(new DeepPointer(address.Key+vars.offset)) { Name = address.Value });
+
+	foreach (var address in vars.missionAddresses) {
+		foreach (var m in address.Value) {
+					if (address.Key == "RC Top-Fun" && vars.offset == -0x2FF8) { // RC mission offsets are different from all other addresses in JP
+					vars.memoryWatchers.Add(new MemoryWatcher<int>(new DeepPointer(m.Key+vars.offset+8)) { Name = m.Value });
+					}
+					else {
+					vars.memoryWatchers.Add(new MemoryWatcher<int>(new DeepPointer(m.Key+vars.offset)) { Name = m.Value });
+					}
+		}
+	}
+	
+	// More...
+	foreach (var address in vars.mission2) {
+		vars.memoryWatchers.Add(new MemoryWatcher<int>(new DeepPointer(address.Value+vars.offset)) { Name = address.Key });
+	}
+	
+	// ...and even more.
+	foreach (var item in vars.collectibles) {
+		var type = item.Key;
+		var addr = item.Value+vars.offset;
+		vars.memoryWatchers.Add(
+			new MemoryWatcher<int>(
+				new DeepPointer(addr)
+			) { Name = type }
+		);
+	}
 	
 	// Add correct memory address for the "game state" to the watcher list.
 	var gameStateAddress = (version == "Japanese") ? 0x5B2F18 : 0x5B5F08+vars.offset;
@@ -178,6 +421,9 @@ init
 	vars.memoryWatchers.Add(new MemoryWatcher<byte>(new DeepPointer(0x426104+vars.offset)) { Name = "kyfc1" });
 	vars.memoryWatchers.Add(new MemoryWatcher<int>(new DeepPointer(0x425DAC+vars.offset)) { Name = "kyfc2" });
 	vars.memoryWatchers.Add(new MemoryWatcher<int>(new DeepPointer(0x426100+vars.offset)) { Name = "kyfc3" });
+	
+	// This is all "split at start of mission" address tracking.
+	// ---------------------------------------------------------
 	
 	// A list of names and memory addresses for OMFs, both the main one and ones for side missions and such.
 	vars.OMFList = new List<string> {"OMFParamedic", "OMFFirefighter", "OMFTaxi", "OMFRampage", "OMFPhonecall", "OMFSaveGame"};
@@ -197,6 +443,11 @@ init
 	// The high number will then freeze if vigilante is cancelled.
 	var VigilanteTimerAddress = (version == "Japanese") ? 0x424E60 : 0x427E50+vars.offset;
 	vars.memoryWatchers.Add(new MemoryWatcher<int>(new DeepPointer(VigilanteTimerAddress)) { Name = "VigilanteTimer" });
+	// End "split at start of mission" address tracking.
+	// ---------------------------------------------------------
+	
+	// Watch for load/saving to prevent splitting after load (this can happen if memory addresses change)
+	vars.memoryWatchers.Add(new MemoryWatcher<bool>(new DeepPointer(0x38D724+vars.offset)) { Name = "Loading" });
 }
 
 update
@@ -204,17 +455,20 @@ update
 	// Disables all the action blocks below in the code if the user is using an unsupported version.
 	if (version == "")
 		return false;
-	
-	// Stores the curent phase the timer is in, so we can use the old one on the next frame.
-	current.timerPhase = timer.CurrentPhase;
-	
+		
 	// Update all of the memory readings for the mission memory addresses.
 	vars.memoryWatchers.UpdateAll(game);
 	
 	// Reset some variables when the timer is started, so we don't need to rely on the start action in this script.
-	if ((old.timerPhase != current.timerPhase && old.timerPhase != TimerPhase.Paused) && current.timerPhase == TimerPhase.Running) {
-		vars.split.Clear();
-		vars.queuedSplit = false;
+	if (timer.CurrentPhase != vars.PrevPhase)
+	{
+		if (timer.CurrentPhase == TimerPhase.NotRunning)
+		{
+			vars.split.Clear();
+			vars.queuedSplit = false;
+			vars.DebugOutput = ("Cleared completed splits");
+		}
+		vars.PrevPhase = timer.CurrentPhase;
 	}
 }
 
@@ -222,20 +476,90 @@ split
 {
 	vars.doSplit = false;
 	
+	if (vars.memoryWatchers["Loading"].Current) {
+		vars.lastLoad = Environment.TickCount;
+		return false;
+	}
+	
+	if (Environment.TickCount - vars.lastLoad < 1000) {
+		// Prevent splitting shortly after loading from a save, since this can
+		// sometimes occur because memory values change
+		if (!vars.waiting)
+		{
+			print("Wait..");
+			vars.waiting = true;
+		}
+		return false;
+	}
+	if (vars.waiting)
+	{
+		print("Done waiting..");
+		vars.waiting = false;
+	}	
+	
 	// Goes through all the missions in the list, checks if their setting is enabled, if the mission has just been passed
 	// and also if we haven't split for this mission yet. If so, splits.
 	foreach (var mission in vars.missionList) {
+		// seperate check if we are splitting for all stadium missions.
+		if (settings["stadAll"]) {
+			foreach (var stadEvent in vars.stadList) {
+				if (vars.memoryWatchers[stadEvent].Current > vars.memoryWatchers[stadEvent].Old && !vars.split.Contains(stadEvent)) {
+					vars.split.Add(stadEvent);
+					// add the completed stadium mission to splits list, and increment total counter by 1.
+					vars.stadAllCount = vars.stadAllCount + 1;
+					if (vars.stadAllCount == 3) {
+						// when all 3 are done, split!
+						vars.doSplit = true;
+					}
+				}
+			}
+		}
 		if (settings[mission] && vars.memoryWatchers[mission].Current > vars.memoryWatchers[mission].Old && !vars.split.Contains(mission)) {
 			vars.split.Add(mission);
 			
 			// If the relevant setting is active, queues up the split to be done at a later time; if not, just splits now.
-			if (settings["OMFSplit"])
+			if (settings["OMFSplit"]) {
 				vars.queuedSplit = true;
-			else
+			}
 				vars.doSplit = true;
 		}
 	}
 	
+	// collectible splitting
+	foreach (var item in vars.collectibleList) {
+		var cvalue = vars.memoryWatchers[item.ToString()];
+		if (cvalue.Current > cvalue.Old) {
+			if (settings[item+"All"]) // adjusting the max count for each collectible type based on what we want to split.
+			{
+				int max = 15;
+				if (item == "Rampages")	{
+					max = 35;
+				}
+				if (item == "Stunt Jumps") {
+					max = 36;
+				}
+				if (item == "Packages")	{
+					max = 100;
+				}
+				if (cvalue.Current == max && cvalue.Old == max-1) {
+					var splitName = item+" "+cvalue.Current;
+					if (!vars.split.Contains(splitName)) {
+						vars.split.Add(splitName);
+						vars.doSplit = true;
+					}
+				}
+			}
+			if (settings[item+"Each"]) { // if it's each, add the collectible to splits list and try to split.
+					var splitName = item+" "+cvalue.Current;
+					if (!vars.split.Contains(splitName)) {
+						vars.split.Add(splitName);
+						vars.doSplit = true;
+					}				
+			}
+		}
+	}
+	
+	// more OMFSplit stuff.
 	// If there is a queued split and the OMF has changed to 1, then check to see if we should split now or not.
 	if (settings["OMFSplit"] && vars.queuedSplit && vars.memoryWatchers["OMF"].Current > vars.memoryWatchers["OMF"].Old) {
 		vars.sideMissionOM = false;
@@ -260,10 +584,12 @@ split
 			vars.doSplit = true; vars.queuedSplit = false;
 		}
 	}
-	
+
 	// Splits for the final split of Any%.
-	if (settings["btgFinalSplit"] && vars.memoryWatchers["kyfc1"].Current == 245 && vars.memoryWatchers["kyfc2"].Current > vars.memoryWatchers["kyfc3"].Current)
+	if (settings["btgFinalSplit"] && vars.memoryWatchers["kyfc1"].Current == 245 && vars.memoryWatchers["kyfc2"].Current > vars.memoryWatchers["kyfc3"].Current && !vars.Split.Contains("btgFinalSplit")) {
+		vars.split.Add("btgFinalSplit");
 		vars.doSplit = true;
+	}
 	
 	if (vars.doSplit)
 		return true;
